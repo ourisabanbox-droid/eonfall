@@ -1,0 +1,24 @@
+package http
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
+
+func NewRouter(h *Handler) http.Handler {
+	r := chi.NewRouter()
+
+	r.Get("/health", h.Health)
+	r.Get("/worlds/{worldID}", h.GetWorldSummary)
+	r.Get("/worlds/{worldID}/map", h.GetWorldMap)
+	r.Get("/worlds/{worldID}/alerts", h.GetWorldAlerts)
+	r.Get("/worlds/{worldID}/dashboard/{civilizationID}", h.GetCivilizationDashboard)
+	r.Get("/worlds/{worldID}/regions/{regionID}", h.GetRegionDetail)
+
+	r.Post("/worlds/{worldID}/actions/build", h.PostBuildAction)
+	r.Post("/worlds/{worldID}/actions/research", h.PostResearchAction)
+	r.Get("/civilizations/{civilizationID}/researches", h.GetCivilizationResearches)
+
+	return r
+}

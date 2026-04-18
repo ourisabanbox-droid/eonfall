@@ -1,0 +1,21 @@
+CREATE TABLE civilizations (
+                               id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                               world_id UUID NOT NULL REFERENCES worlds(id) ON DELETE CASCADE,
+                               user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                               template_id TEXT NOT NULL,
+                               name TEXT NOT NULL,
+                               status TEXT NOT NULL DEFAULT 'active',
+                               population BIGINT NOT NULL DEFAULT 0,
+                               cohesion INT NOT NULL DEFAULT 100,
+                               influence INT NOT NULL DEFAULT 0,
+                               science_stock INT NOT NULL DEFAULT 0,
+                               credit_stock INT NOT NULL DEFAULT 0,
+                               food_stock INT NOT NULL DEFAULT 0,
+                               energy_stock INT NOT NULL DEFAULT 0,
+                               materials_stock INT NOT NULL DEFAULT 0,
+                               military_score INT NOT NULL DEFAULT 0,
+                               victory_score INT NOT NULL DEFAULT 0,
+                               capital_region_id UUID NULL,
+                               created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                               updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

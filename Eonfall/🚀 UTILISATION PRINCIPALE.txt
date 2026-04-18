@@ -1,0 +1,21 @@
+🚀 UTILISATION PRINCIPALE
+🟢 1. Reprendre le projet avec une nouvelle IA
+Étape 1 — Initialisation
+
+Copier :
+
+00_MASTER_BOOTSTRAP_PROMPT.md
+Étape 2 — Contexte minimal
+
+Ajouter :
+
+01_EXEC_SUMMARY.md
+20_ARCHITECTURE_MAP.md
+21_SYSTEM_INVARIANTS.md
+40_CURRENT_STATE.md
+43_NEXT_STEPS.md
+Étape 3 — Instruction
+
+Dire à l’IA :
+
+Read all documents carefully and continue as my CTO.

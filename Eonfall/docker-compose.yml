@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: eonfall-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eonfall
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: J3rusa/3m
+    ports:
+      - "5433:5432"
+    volumes:
+      - eonfall_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d eonfall"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: eonfall-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - eonfall_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  eonfall_postgres_data:
+  eonfall_redis_data:

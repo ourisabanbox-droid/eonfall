@@ -1,0 +1,2 @@
+ALTER TABLE civilizations
+DROP CONSTRAINT IF EXISTS fk_civilizations_capital_region;
