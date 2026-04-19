@@ -15,6 +15,7 @@ type Loader struct {
 	civilizationRepo *worldrepo.CivilizationRepository
 	regionRepo       *worldrepo.RegionRepository
 	researchRepo     *worldrepo.ResearchRepository
+	catastropheRepo  *worldrepo.CatastropheRepository
 }
 
 func New(
@@ -22,12 +23,14 @@ func New(
 	civilizationRepo *worldrepo.CivilizationRepository,
 	regionRepo *worldrepo.RegionRepository,
 	researchRepo *worldrepo.ResearchRepository,
+	catastropheRepo *worldrepo.CatastropheRepository,
 ) *Loader {
 	return &Loader{
 		worldRepo:        worldRepo,
 		civilizationRepo: civilizationRepo,
 		regionRepo:       regionRepo,
 		researchRepo:     researchRepo,
+		catastropheRepo:  catastropheRepo,
 	}
 }
 
@@ -60,7 +63,6 @@ func (l *Loader) LoadWorld(ctx context.Context, worldID uuid.UUID) (*world.World
 	if err != nil {
 		return nil, fmt.Errorf("load region resource stocks: %w", err)
 	}
-
 	for _, rs := range resourceStocks {
 		region := w.Regions[rs.RegionID]
 		if region == nil {
@@ -72,7 +74,6 @@ func (l *Loader) LoadWorld(ctx context.Context, worldID uuid.UUID) (*world.World
 		region.ResourceStocks[rs.ResourceType] = rs
 	}
 
-	// Load researches for each civilization
 	for _, civ := range w.Civilizations {
 		researches, err := l.researchRepo.ListByCivilizationID(ctx, civ.ID)
 		if err != nil {
@@ -81,6 +82,14 @@ func (l *Loader) LoadWorld(ctx context.Context, worldID uuid.UUID) (*world.World
 		for _, rp := range researches {
 			civ.Researches[rp.ResearchType] = rp
 		}
+	}
+
+	activeCatastrophes, err := l.catastropheRepo.ListActiveByWorldID(ctx, worldID)
+	if err != nil {
+		return nil, fmt.Errorf("load active catastrophes: %w", err)
+	}
+	for _, c := range activeCatastrophes {
+		w.Catastrophes[c.ID] = c
 	}
 
 	return w, nil

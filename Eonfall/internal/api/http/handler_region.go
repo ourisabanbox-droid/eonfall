@@ -38,6 +38,12 @@ func (h *Handler) GetRegionDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	catastrophes, err := h.catastropheRepo.ListActiveByRegionID(r.Context(), regionID)
+	if err != nil {
+		http.Error(w, "failed to load region catastrophes", http.StatusInternalServerError)
+		return
+	}
+
 	type buildingView struct {
 		ID            uuid.UUID `json:"id"`
 		BuildingType  string    `json:"building_type"`
@@ -54,6 +60,16 @@ func (h *Handler) GetRegionDetail(w http.ResponseWriter, r *http.Request) {
 		ProductionRate  int    `json:"production_rate"`
 		ConsumptionRate int    `json:"consumption_rate"`
 		Capacity        int    `json:"capacity"`
+	}
+
+	type catastropheView struct {
+		ID              uuid.UUID `json:"id"`
+		CatastropheType string    `json:"catastrophe_type"`
+		State           string    `json:"state"`
+		Severity        int       `json:"severity"`
+		StartsAtTick    int64     `json:"starts_at_tick"`
+		EndsAtTick      *int64    `json:"ends_at_tick"`
+		Payload         any       `json:"payload"`
 	}
 
 	bv := make([]buildingView, 0, len(buildings))
@@ -80,6 +96,19 @@ func (h *Handler) GetRegionDetail(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	cv := make([]catastropheView, 0, len(catastrophes))
+	for _, c := range catastrophes {
+		cv = append(cv, catastropheView{
+			ID:              c.ID,
+			CatastropheType: string(c.CatastropheType),
+			State:           string(c.State),
+			Severity:        c.Severity,
+			StartsAtTick:    c.StartsAtTick,
+			EndsAtTick:      c.EndsAtTick,
+			Payload:         c.Payload,
+		})
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":                    region.ID,
 		"world_id":              region.WorldID,
@@ -102,5 +131,6 @@ func (h *Handler) GetRegionDetail(w http.ResponseWriter, r *http.Request) {
 		"has_capital":           region.HasCapital,
 		"buildings":             bv,
 		"resource_stocks":       rv,
+		"active_catastrophes":   cv,
 	})
 }

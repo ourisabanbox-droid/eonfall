@@ -217,3 +217,36 @@ WHERE id = $1
 
 	return nil
 }
+
+func (r *RegionRepository) UpdateRuntimeState(ctx context.Context, region *world.Region) error {
+	const q = `
+UPDATE regions
+SET stability = $2,
+    pollution = $3,
+    drought_risk = $4,
+    revolt_risk = $5,
+    fire_risk = $6,
+    seismic_risk = $7,
+    energy_fragility = $8,
+    logistic_fragility = $9,
+    updated_at = NOW()
+WHERE id = $1
+`
+	_, err := r.db.Exec(
+		ctx,
+		q,
+		region.ID,
+		region.Stability,
+		region.Pollution,
+		region.DroughtRisk,
+		region.RevoltRisk,
+		region.FireRisk,
+		region.SeismicRisk,
+		region.EnergyFragility,
+		region.LogisticFragility,
+	)
+	if err != nil {
+		return fmt.Errorf("UpdateRuntimeState exec: %w", err)
+	}
+	return nil
+}

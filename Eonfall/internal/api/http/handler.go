@@ -17,6 +17,7 @@ type Handler struct {
 	actionRepo       *worldrepo.ActionRepository
 	researchRepo     *worldrepo.ResearchRepository
 	alertRepo        *worldrepo.AlertRepository
+	catastropheRepo  *worldrepo.CatastropheRepository
 }
 
 func NewHandler(
@@ -26,6 +27,7 @@ func NewHandler(
 	actionRepo *worldrepo.ActionRepository,
 	researchRepo *worldrepo.ResearchRepository,
 	alertRepo *worldrepo.AlertRepository,
+	catastropheRepo *worldrepo.CatastropheRepository,
 ) *Handler {
 	return &Handler{
 		worldRepo:        worldRepo,
@@ -34,6 +36,7 @@ func NewHandler(
 		actionRepo:       actionRepo,
 		researchRepo:     researchRepo,
 		alertRepo:        alertRepo,
+		catastropheRepo:  catastropheRepo,
 	}
 }
 

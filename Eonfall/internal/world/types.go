@@ -37,4 +37,10 @@ const (
 	ActionPending  ActionState = "pending"
 	ActionApplied  ActionState = "applied"
 	ActionRejected ActionState = "rejected"
+
+	CatastropheDrought CatastropheType = "drought"
+	CatastropheRevolt  CatastropheType = "revolt"
+
+	CatastropheStateActive   CatastropheState = "active"
+	CatastropheStateResolved CatastropheState = "resolved"
 )

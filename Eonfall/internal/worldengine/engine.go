@@ -18,6 +18,8 @@ type Engine struct {
 	consumptionService ConsumptionService
 	researchService    ResearchService
 	riskService        RiskService
+	pressureService    PressureService
+	catastropheService CatastropheService
 	normalizerService  NormalizerService
 	persistenceService PersistenceService
 }
@@ -30,6 +32,8 @@ func NewEngine(
 	consumptionService ConsumptionService,
 	researchService ResearchService,
 	riskService RiskService,
+	pressureService PressureService,
+	catastropheService CatastropheService,
 	normalizerService NormalizerService,
 	persistenceService PersistenceService,
 ) *Engine {
@@ -41,6 +45,8 @@ func NewEngine(
 		consumptionService: consumptionService,
 		researchService:    researchService,
 		riskService:        riskService,
+		pressureService:    pressureService,
+		catastropheService: catastropheService,
 		normalizerService:  normalizerService,
 		persistenceService: persistenceService,
 	}
@@ -80,6 +86,16 @@ func (e *Engine) Tick(ctx context.Context) error {
 	if err := e.riskService.Apply(ctx, e.world); err != nil {
 		return err
 	}
+
+	pressures, err := e.pressureService.Compute(ctx, e.world)
+	if err != nil {
+		return err
+	}
+
+	if err := e.catastropheService.Apply(ctx, e.world, pressures); err != nil {
+		return err
+	}
+
 	if err := e.normalizerService.Apply(ctx, e.world); err != nil {
 		return err
 	}
