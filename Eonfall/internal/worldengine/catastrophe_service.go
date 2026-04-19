@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,8 +17,6 @@ const (
 	droughtCooldownTicks int64 = 15
 	revoltCooldownTicks  int64 = 15
 )
-
-var catastropheDebugInsertDone bool
 
 type BasicCatastropheService struct {
 	catastropheRepo *worldrepo.CatastropheRepository
@@ -37,31 +34,6 @@ func NewBasicCatastropheService(
 }
 
 func (s *BasicCatastropheService) Apply(ctx context.Context, w *world.World, pressures map[uuid.UUID]RegionPressure) error {
-	log.Printf("CATASTROPHE SERVICE APPLY DEBUG tick=%d catastrophes=%d pressures=%d", w.CurrentTick, len(w.Catastrophes), len(pressures))
-	if !catastropheDebugInsertDone {
-		catastropheDebugInsertDone = true
-
-		debugType := "catastrophe_debug_from_apply"
-		debugTitle := "Catastrophe debug apply"
-		debugMessage := "Forced debug alert from BasicCatastropheService.Apply"
-
-		if err := s.alertRepo.Insert(ctx, worldrepo.NewWorldAlert(
-			w.ID,
-			nil,
-			nil,
-			debugType,
-			"warning",
-			debugTitle,
-			debugMessage,
-			map[string]any{
-				"tick": w.CurrentTick,
-			},
-		)); err != nil {
-			return fmt.Errorf("forced debug insert from catastrophe apply: %w", err)
-		}
-
-		log.Printf("CATASTROPHE DEBUG INSERT SUCCESS tick=%d", w.CurrentTick)
-	}
 
 	if w.Catastrophes == nil {
 		w.Catastrophes = map[uuid.UUID]*world.Catastrophe{}
@@ -92,7 +64,6 @@ func (s *BasicCatastropheService) Apply(ctx context.Context, w *world.World, pre
 				return err
 			}
 			if !coolingDown && s.shouldTrigger(w, regionID, world.CatastropheDrought, pressure.DroughtPressure, 70) {
-				log.Printf("CATASTROPHE CREATE BRANCH drought region=%s tick=%d pressure=%d", regionID.String(), w.CurrentTick, pressure.DroughtPressure)
 				if err := s.createDrought(ctx, w, region, pressure); err != nil {
 					return err
 				}
@@ -105,7 +76,6 @@ func (s *BasicCatastropheService) Apply(ctx context.Context, w *world.World, pre
 				return err
 			}
 			if !coolingDown && s.shouldTrigger(w, regionID, world.CatastropheRevolt, pressure.RevoltPressure, 80) {
-				log.Printf("CATASTROPHE CREATE BRANCH revolt region=%s tick=%d pressure=%d", regionID.String(), w.CurrentTick, pressure.RevoltPressure)
 				if err := s.createRevolt(ctx, w, region, pressure); err != nil {
 					return err
 				}
