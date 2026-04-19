@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +13,13 @@ import (
 	"project-eonfall/internal/world"
 	"project-eonfall/internal/worldrepo"
 )
+
+const (
+	droughtCooldownTicks int64 = 15
+	revoltCooldownTicks  int64 = 15
+)
+
+var catastropheDebugInsertDone bool
 
 type BasicCatastropheService struct {
 	catastropheRepo *worldrepo.CatastropheRepository
@@ -29,6 +37,32 @@ func NewBasicCatastropheService(
 }
 
 func (s *BasicCatastropheService) Apply(ctx context.Context, w *world.World, pressures map[uuid.UUID]RegionPressure) error {
+	log.Printf("CATASTROPHE SERVICE APPLY DEBUG tick=%d catastrophes=%d pressures=%d", w.CurrentTick, len(w.Catastrophes), len(pressures))
+	if !catastropheDebugInsertDone {
+		catastropheDebugInsertDone = true
+
+		debugType := "catastrophe_debug_from_apply"
+		debugTitle := "Catastrophe debug apply"
+		debugMessage := "Forced debug alert from BasicCatastropheService.Apply"
+
+		if err := s.alertRepo.Insert(ctx, worldrepo.NewWorldAlert(
+			w.ID,
+			nil,
+			nil,
+			debugType,
+			"warning",
+			debugTitle,
+			debugMessage,
+			map[string]any{
+				"tick": w.CurrentTick,
+			},
+		)); err != nil {
+			return fmt.Errorf("forced debug insert from catastrophe apply: %w", err)
+		}
+
+		log.Printf("CATASTROPHE DEBUG INSERT SUCCESS tick=%d", w.CurrentTick)
+	}
+
 	if w.Catastrophes == nil {
 		w.Catastrophes = map[uuid.UUID]*world.Catastrophe{}
 	}
@@ -53,7 +87,12 @@ func (s *BasicCatastropheService) Apply(ctx context.Context, w *world.World, pre
 		}
 
 		if !s.hasActiveTypeInRegion(w, regionID, world.CatastropheDrought) {
-			if s.shouldTrigger(w, regionID, world.CatastropheDrought, pressure.DroughtPressure, 72) {
+			coolingDown, err := s.isCoolingDown(ctx, w, regionID, world.CatastropheDrought, droughtCooldownTicks)
+			if err != nil {
+				return err
+			}
+			if !coolingDown && s.shouldTrigger(w, regionID, world.CatastropheDrought, pressure.DroughtPressure, 70) {
+				log.Printf("CATASTROPHE CREATE BRANCH drought region=%s tick=%d pressure=%d", regionID.String(), w.CurrentTick, pressure.DroughtPressure)
 				if err := s.createDrought(ctx, w, region, pressure); err != nil {
 					return err
 				}
@@ -61,7 +100,12 @@ func (s *BasicCatastropheService) Apply(ctx context.Context, w *world.World, pre
 		}
 
 		if !s.hasActiveTypeInRegion(w, regionID, world.CatastropheRevolt) {
-			if s.shouldTrigger(w, regionID, world.CatastropheRevolt, pressure.RevoltPressure, 76) {
+			coolingDown, err := s.isCoolingDown(ctx, w, regionID, world.CatastropheRevolt, revoltCooldownTicks)
+			if err != nil {
+				return err
+			}
+			if !coolingDown && s.shouldTrigger(w, regionID, world.CatastropheRevolt, pressure.RevoltPressure, 80) {
+				log.Printf("CATASTROPHE CREATE BRANCH revolt region=%s tick=%d pressure=%d", regionID.String(), w.CurrentTick, pressure.RevoltPressure)
 				if err := s.createRevolt(ctx, w, region, pressure); err != nil {
 					return err
 				}
@@ -83,31 +127,34 @@ func (s *BasicCatastropheService) resolveExpired(ctx context.Context, w *world.W
 				return err
 			}
 
+			region := w.Regions[c.RegionID]
+			if region != nil {
+				switch c.CatastropheType {
+				case world.CatastropheDrought:
+					region.DroughtRisk = clampInt(0, 100, region.DroughtRisk-40)
+					region.Stability = clampInt(0, 100, region.Stability+15)
+				case world.CatastropheRevolt:
+					region.RevoltRisk = clampInt(0, 100, region.RevoltRisk-40)
+					region.Stability = clampInt(0, 100, region.Stability+20)
+				}
+			}
+
 			regionID := c.RegionID
-			exists, err := s.alertRepo.ExistsRecentSimilar(
-				ctx,
+			if err := s.alertRepo.Insert(ctx, worldrepo.NewWorldAlert(
 				w.ID,
 				nil,
 				&regionID,
 				fmt.Sprintf("catastrophe_%s_resolved", c.CatastropheType),
-				nil,
-				60*time.Second,
-			)
-			if err == nil && !exists {
-				_ = s.alertRepo.Insert(ctx, worldrepo.NewWorldAlert(
-					w.ID,
-					nil,
-					&regionID,
-					fmt.Sprintf("catastrophe_%s_resolved", c.CatastropheType),
-					"info",
-					"Catastrophe terminée",
-					"La région commence à se stabiliser après la catastrophe.",
-					map[string]any{
-						"region_id":        regionID.String(),
-						"catastrophe_type": string(c.CatastropheType),
-						"tick":             w.CurrentTick,
-					},
-				))
+				"info",
+				"Catastrophe terminée",
+				"La région commence à se stabiliser après la catastrophe.",
+				map[string]any{
+					"region_id":        regionID.String(),
+					"catastrophe_type": string(c.CatastropheType),
+					"tick":             w.CurrentTick,
+				},
+			)); err != nil {
+				return fmt.Errorf("insert catastrophe resolved alert: %w", err)
 			}
 
 			delete(w.Catastrophes, id)
@@ -147,30 +194,21 @@ func (s *BasicCatastropheService) createDrought(ctx context.Context, w *world.Wo
 	w.Catastrophes[c.ID] = c
 
 	regionID := region.ID
-	exists, err := s.alertRepo.ExistsRecentSimilar(
-		ctx,
+	if err := s.alertRepo.Insert(ctx, worldrepo.NewWorldAlert(
 		w.ID,
 		region.OwnerCivilizationID,
 		&regionID,
 		"catastrophe_drought_started",
-		nil,
-		60*time.Second,
-	)
-	if err == nil && !exists {
-		_ = s.alertRepo.Insert(ctx, worldrepo.NewWorldAlert(
-			w.ID,
-			region.OwnerCivilizationID,
-			&regionID,
-			"catastrophe_drought_started",
-			"warning",
-			"Sécheresse",
-			"Une sécheresse frappe la région et affaiblit son économie vivrière.",
-			map[string]any{
-				"region_id": region.ID.String(),
-				"severity":  severity,
-				"tick":      w.CurrentTick,
-			},
-		))
+		"warning",
+		"Sécheresse",
+		"Une sécheresse frappe la région et affaiblit son économie vivrière.",
+		map[string]any{
+			"region_id": region.ID.String(),
+			"severity":  severity,
+			"tick":      w.CurrentTick,
+		},
+	)); err != nil {
+		return fmt.Errorf("insert catastrophe drought alert: %w", err)
 	}
 
 	return nil
@@ -209,30 +247,21 @@ func (s *BasicCatastropheService) createRevolt(ctx context.Context, w *world.Wor
 	w.Catastrophes[c.ID] = c
 
 	regionID := region.ID
-	exists, err := s.alertRepo.ExistsRecentSimilar(
-		ctx,
+	if err := s.alertRepo.Insert(ctx, worldrepo.NewWorldAlert(
 		w.ID,
 		region.OwnerCivilizationID,
 		&regionID,
 		"catastrophe_revolt_started",
-		nil,
-		60*time.Second,
-	)
-	if err == nil && !exists {
-		_ = s.alertRepo.Insert(ctx, worldrepo.NewWorldAlert(
-			w.ID,
-			region.OwnerCivilizationID,
-			&regionID,
-			"catastrophe_revolt_started",
-			"critical",
-			"Révolte",
-			"Une révolte éclate dans la région et fragilise son ordre interne.",
-			map[string]any{
-				"region_id": region.ID.String(),
-				"severity":  severity,
-				"tick":      w.CurrentTick,
-			},
-		))
+		"critical",
+		"Révolte",
+		"Une révolte éclate dans la région et fragilise son ordre interne.",
+		map[string]any{
+			"region_id": region.ID.String(),
+			"severity":  severity,
+			"tick":      w.CurrentTick,
+		},
+	)); err != nil {
+		return fmt.Errorf("insert catastrophe revolt alert: %w", err)
 	}
 
 	return nil
@@ -312,9 +341,9 @@ func (s *BasicCatastropheService) shouldTrigger(
 
 func catastropheSeverity(pressure int) int {
 	switch {
-	case pressure >= 92:
+	case pressure >= 96:
 		return 3
-	case pressure >= 82:
+	case pressure >= 84:
 		return 2
 	default:
 		return 1
@@ -350,4 +379,25 @@ func deterministicRoll(worldID, regionID uuid.UUID, tick int64, t world.Catastro
 	_, _ = h.Write(buf[:])
 
 	return float64(h.Sum64()%10000) / 10000.0
+}
+
+func (s *BasicCatastropheService) isCoolingDown(
+	ctx context.Context,
+	w *world.World,
+	regionID uuid.UUID,
+	t world.CatastropheType,
+	cooldownTicks int64,
+) (bool, error) {
+	sinceTick := w.CurrentTick - cooldownTicks
+	if sinceTick < 0 {
+		sinceTick = 0
+	}
+
+	return s.catastropheRepo.ExistsRecentResolvedOfType(
+		ctx,
+		w.ID,
+		regionID,
+		t,
+		sinceTick,
+	)
 }

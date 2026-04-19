@@ -169,3 +169,37 @@ WHERE id = $1
 	}
 	return nil
 }
+
+func (r *CatastropheRepository) ExistsRecentResolvedOfType(
+	ctx context.Context,
+	worldID uuid.UUID,
+	regionID uuid.UUID,
+	catastropheType world.CatastropheType,
+	sinceTick int64,
+) (bool, error) {
+	const q = `
+SELECT EXISTS (
+    SELECT 1
+    FROM world_catastrophes
+    WHERE world_id = $1
+      AND region_id = $2
+      AND catastrophe_type = $3
+      AND state = 'resolved'
+      AND ends_at_tick IS NOT NULL
+      AND ends_at_tick >= $4
+)
+`
+	var exists bool
+	err := r.db.QueryRow(
+		ctx,
+		q,
+		worldID,
+		regionID,
+		catastropheType,
+		sinceTick,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("ExistsRecentResolvedOfType query: %w", err)
+	}
+	return exists, nil
+}
