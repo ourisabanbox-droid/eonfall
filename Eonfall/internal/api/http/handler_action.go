@@ -40,3 +40,42 @@ func (h *Handler) GetWorldActions(w http.ResponseWriter, r *http.Request) {
 		"actions": resp,
 	})
 }
+
+func (h *Handler) GetRegionActions(w http.ResponseWriter, r *http.Request) {
+	worldID, err := uuid.Parse(chi.URLParam(r, "worldID"))
+	if err != nil {
+		http.Error(w, "invalid worldID", http.StatusBadRequest)
+		return
+	}
+
+	regionID, err := uuid.Parse(chi.URLParam(r, "regionID"))
+	if err != nil {
+		http.Error(w, "invalid regionID", http.StatusBadRequest)
+		return
+	}
+
+	limit := 20
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil || v <= 0 {
+			http.Error(w, "invalid limit", http.StatusBadRequest)
+			return
+		}
+		limit = v
+	}
+
+	actions, err := h.actionRepo.ListByWorldIDAndRegionID(r.Context(), worldID, regionID, limit)
+	if err != nil {
+		http.Error(w, "failed to load region actions", http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]ActionResponse, 0, len(actions))
+	for _, action := range actions {
+		resp = append(resp, toActionResponse(action))
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"actions": resp,
+	})
+}

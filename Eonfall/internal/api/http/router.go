@@ -16,7 +16,9 @@ func NewRouter(h *Handler) http.Handler {
 	r.Get("/worlds/{worldID}/actions", h.GetWorldActions)
 	r.Get("/worlds/{worldID}/dashboard/{civilizationID}", h.GetCivilizationDashboard)
 	r.Get("/worlds/{worldID}/regions/{regionID}", h.GetRegionDetail)
-
+	r.Get("/worlds/{worldID}/regions/{regionID}/actions", h.GetRegionActions)
+	r.Get("/worlds/{worldID}/regions/{regionID}/available-actions", h.GetRegionAvailableActions)
+	r.Get("/worlds/{worldID}/priority-regions", h.GetPriorityRegions)
 	r.Post("/worlds/{worldID}/actions/build", h.PostBuildAction)
 	r.Post("/worlds/{worldID}/actions/research", h.PostResearchAction)
 	r.Get("/civilizations/{civilizationID}/researches", h.GetCivilizationResearches)
