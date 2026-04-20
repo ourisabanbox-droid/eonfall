@@ -10,11 +10,23 @@ import (
 	"project-eonfall/internal/worldrepo"
 )
 
+const (
+	stabilizeStabilityGain             = 20
+	stabilizeRevoltRiskReduction       = 25
+	stabilizePressureReduction         = 15
+	stabilizeDurationTicks       int64 = 5
+
+	droughtReliefRiskReduction       = 25
+	droughtReliefFoodGrant     int64 = 50
+	droughtReliefFoodCapacity        = 200
+)
+
 type QueuedActionService struct {
 	actionRepo   *worldrepo.ActionRepository
 	buildingRepo *worldrepo.BuildingRepository
 	researchRepo *worldrepo.ResearchRepository
 	alertRepo    *worldrepo.AlertRepository
+	regionRepo   *worldrepo.RegionRepository
 }
 
 func NewQueuedActionService(
@@ -22,12 +34,14 @@ func NewQueuedActionService(
 	buildingRepo *worldrepo.BuildingRepository,
 	researchRepo *worldrepo.ResearchRepository,
 	alertRepo *worldrepo.AlertRepository,
+	regionRepo *worldrepo.RegionRepository,
 ) *QueuedActionService {
 	return &QueuedActionService{
 		actionRepo:   actionRepo,
 		buildingRepo: buildingRepo,
 		researchRepo: researchRepo,
 		alertRepo:    alertRepo,
+		regionRepo:   regionRepo,
 	}
 }
 
@@ -56,6 +70,10 @@ func (s *QueuedActionService) applyOne(ctx context.Context, w *world.World, acti
 		return s.applyBuild(ctx, w, action)
 	case world.ActionResearchStart:
 		return s.applyResearchStart(ctx, w, action)
+	case world.ActionStabilizeRegion:
+		return s.applyStabilizeRegion(ctx, w, action)
+	case world.ActionDroughtRelief:
+		return s.applyDroughtRelief(ctx, w, action)
 	default:
 		return fmt.Errorf("unsupported action type: %s", action.ActionType)
 	}
@@ -212,6 +230,136 @@ func (s *QueuedActionService) applyResearchStart(ctx context.Context, w *world.W
 
 	if err := s.researchRepo.Insert(ctx, rp); err != nil {
 		return fmt.Errorf("persist research: %w", err)
+	}
+
+	return nil
+}
+
+func (s *QueuedActionService) applyStabilizeRegion(ctx context.Context, w *world.World, action *world.WorldAction) error {
+	rawRegionID, ok := action.Payload["region_id"].(string)
+	if !ok || rawRegionID == "" {
+		return fmt.Errorf("missing region_id")
+	}
+
+	regionID, err := uuid.Parse(rawRegionID)
+	if err != nil {
+		return fmt.Errorf("invalid region_id")
+	}
+
+	region := w.Regions[regionID]
+	if region == nil {
+		return fmt.Errorf("region not found")
+	}
+
+	if region.OwnerCivilizationID == nil || *region.OwnerCivilizationID != action.CivilizationID {
+		return fmt.Errorf("region is not owned by civilization")
+	}
+
+	region.Stability = clampInt(0, 100, region.Stability+stabilizeStabilityGain)
+	region.RevoltRisk = clampInt(0, 100, region.RevoltRisk-stabilizeRevoltRiskReduction)
+
+	if region.Metadata == nil {
+		region.Metadata = map[string]any{}
+	}
+	region.Metadata["stabilize_until_tick"] = w.CurrentTick + stabilizeDurationTicks
+	region.Metadata["stabilize_revolt_pressure_reduction"] = stabilizePressureReduction
+
+	alert := worldrepo.NewWorldAlert(
+		w.ID,
+		&action.CivilizationID,
+		&region.ID,
+		"region_stabilized",
+		"info",
+		"Région stabilisée",
+		"Des mesures d'urgence ont temporairement renforcé la stabilité régionale.",
+		map[string]any{
+			"region_id":   region.ID.String(),
+			"stability":   region.Stability,
+			"revolt_risk": region.RevoltRisk,
+			"tick":        w.CurrentTick,
+		},
+	)
+
+	if err := s.alertRepo.Insert(ctx, alert); err != nil {
+		return fmt.Errorf("insert stabilize alert: %w", err)
+	}
+
+	return nil
+}
+
+func (s *QueuedActionService) applyDroughtRelief(ctx context.Context, w *world.World, action *world.WorldAction) error {
+	rawRegionID, ok := action.Payload["region_id"].(string)
+	if !ok || rawRegionID == "" {
+		return fmt.Errorf("missing region_id")
+	}
+
+	regionID, err := uuid.Parse(rawRegionID)
+	if err != nil {
+		return fmt.Errorf("invalid region_id")
+	}
+
+	region := w.Regions[regionID]
+	if region == nil {
+		return fmt.Errorf("region not found")
+	}
+	if region.OwnerCivilizationID == nil || *region.OwnerCivilizationID != action.CivilizationID {
+		return fmt.Errorf("region is not owned by civilization")
+	}
+
+	region.DroughtRisk = clampInt(0, 100, region.DroughtRisk-droughtReliefRiskReduction)
+
+	food := region.ResourceStocks[world.ResourceFood]
+	if food == nil {
+		if region.ResourceStocks == nil {
+			region.ResourceStocks = map[world.ResourceType]*world.RegionResourceStock{}
+		}
+
+		food = &world.RegionResourceStock{
+			ID:              uuid.New(),
+			WorldID:         region.WorldID,
+			RegionID:        region.ID,
+			ResourceType:    world.ResourceFood,
+			Stock:           0,
+			ProductionRate:  0,
+			ConsumptionRate: 0,
+			Capacity:        droughtReliefFoodCapacity,
+		}
+		if err := s.regionRepo.InsertResourceStock(ctx, food); err != nil {
+			return fmt.Errorf("insert drought relief food stock: %w", err)
+		}
+		region.ResourceStocks[world.ResourceFood] = food
+	}
+
+	food.Stock += droughtReliefFoodGrant
+	if food.Capacity > 0 && food.Stock > int64(food.Capacity) {
+		food.Stock = int64(food.Capacity)
+	}
+	if err := s.regionRepo.UpdateResourceStock(ctx, food); err != nil {
+		return fmt.Errorf("update drought relief food stock: %w", err)
+	}
+	alert := worldrepo.NewWorldAlert(
+		w.ID,
+		&action.CivilizationID,
+		&region.ID,
+		"region_drought_relieved",
+		"info",
+		"Secours hydrique",
+		"Des mesures d'urgence ont réduit temporairement la pression liée à la sécheresse.",
+		map[string]any{
+			"region_id":    region.ID.String(),
+			"drought_risk": region.DroughtRisk,
+			"food_stock": func() int64 {
+				if food != nil {
+					return food.Stock
+				}
+				return 0
+			}(),
+			"tick": w.CurrentTick,
+		},
+	)
+
+	if err := s.alertRepo.Insert(ctx, alert); err != nil {
+		return fmt.Errorf("insert drought relief alert: %w", err)
 	}
 
 	return nil

@@ -138,3 +138,59 @@ WHERE id = $1
 	}
 	return nil
 }
+
+func (r *ActionRepository) ListByWorldID(ctx context.Context, worldID uuid.UUID, limit int) ([]*world.WorldAction, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	const q = `
+SELECT id, world_id, civilization_id, user_id, action_type, state,
+       target_tick, payload_json, rejection_reason, created_at, applied_at
+FROM world_actions
+WHERE world_id = $1
+ORDER BY created_at DESC
+LIMIT $2
+`
+	rows, err := r.db.Query(ctx, q, worldID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("ListByWorldID query: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*world.WorldAction
+
+	for rows.Next() {
+		var a world.WorldAction
+		var rawPayload []byte
+
+		err := rows.Scan(
+			&a.ID,
+			&a.WorldID,
+			&a.CivilizationID,
+			&a.UserID,
+			&a.ActionType,
+			&a.State,
+			&a.TargetTick,
+			&rawPayload,
+			&a.RejectionReason,
+			&a.CreatedAt,
+			&a.AppliedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("ListByWorldID scan: %w", err)
+		}
+
+		if len(rawPayload) > 0 {
+			if err := json.Unmarshal(rawPayload, &a.Payload); err != nil {
+				return nil, fmt.Errorf("unmarshal payload: %w", err)
+			}
+		} else {
+			a.Payload = map[string]any{}
+		}
+
+		out = append(out, &a)
+	}
+
+	return out, rows.Err()
+}

@@ -46,6 +46,20 @@ func (s *BasicPressureService) Compute(ctx context.Context, w *world.World) (map
 				maxInt(0, resourceStress/2),
 		)
 
+		if region.Metadata != nil {
+			rawUntil, hasUntil := region.Metadata["stabilize_until_tick"]
+			rawReduction, hasReduction := region.Metadata["stabilize_revolt_pressure_reduction"]
+
+			if hasUntil && hasReduction {
+				untilTick, okUntil := asInt64(rawUntil)
+				reduction, okReduction := asInt(rawReduction)
+
+				if okUntil && okReduction && w.CurrentTick <= untilTick {
+					revoltPressure = clampInt(0, 100, revoltPressure-reduction)
+				}
+			}
+		}
+
 		out[regionID] = RegionPressure{
 			DroughtPressure: droughtPressure,
 			RevoltPressure:  revoltPressure,
@@ -147,4 +161,34 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func asInt(v any) (int, bool) {
+	switch t := v.(type) {
+	case int:
+		return t, true
+	case int32:
+		return int(t), true
+	case int64:
+		return int(t), true
+	case float64:
+		return int(t), true
+	default:
+		return 0, false
+	}
+}
+
+func asInt64(v any) (int64, bool) {
+	switch t := v.(type) {
+	case int:
+		return int64(t), true
+	case int32:
+		return int64(t), true
+	case int64:
+		return t, true
+	case float64:
+		return int64(t), true
+	default:
+		return 0, false
+	}
 }

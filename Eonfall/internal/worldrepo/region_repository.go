@@ -250,3 +250,60 @@ WHERE id = $1
 	}
 	return nil
 }
+
+func (r *RegionRepository) InsertResourceStock(ctx context.Context, rs *world.RegionResourceStock) error {
+	const q = `
+INSERT INTO region_resource_stocks (
+    id, world_id, region_id, resource_type, stock, production_rate, consumption_rate, capacity
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+`
+	_, err := r.db.Exec(
+		ctx,
+		q,
+		rs.ID,
+		rs.WorldID,
+		rs.RegionID,
+		rs.ResourceType,
+		rs.Stock,
+		rs.ProductionRate,
+		rs.ConsumptionRate,
+		rs.Capacity,
+	)
+	if err != nil {
+		return fmt.Errorf("InsertResourceStock exec: %w", err)
+	}
+	return nil
+}
+
+func (r *RegionRepository) UpsertResourceStock(ctx context.Context, rs *world.RegionResourceStock) error {
+	const q = `
+INSERT INTO region_resource_stocks (
+    id, world_id, region_id, resource_type, stock, production_rate, consumption_rate, capacity
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+ON CONFLICT (id) DO UPDATE
+SET stock = EXCLUDED.stock,
+    production_rate = EXCLUDED.production_rate,
+    consumption_rate = EXCLUDED.consumption_rate,
+    capacity = EXCLUDED.capacity
+`
+	_, err := r.db.Exec(
+		ctx,
+		q,
+		rs.ID,
+		rs.WorldID,
+		rs.RegionID,
+		rs.ResourceType,
+		rs.Stock,
+		rs.ProductionRate,
+		rs.ConsumptionRate,
+		rs.Capacity,
+	)
+	if err != nil {
+		return fmt.Errorf("UpsertResourceStock exec: %w", err)
+	}
+	return nil
+}

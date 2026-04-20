@@ -30,9 +30,11 @@ const (
 	ResourceKnowledge ResourceType = "knowledge"
 	ResourceCohesion  ResourceType = "cohesion"
 
-	ActionBuild         ActionType = "build"
-	ActionResearchStart ActionType = "research_start"
-	ActionExpand        ActionType = "expand"
+	ActionBuild           ActionType = "build"
+	ActionResearchStart   ActionType = "research_start"
+	ActionExpand          ActionType = "expand"
+	ActionStabilizeRegion ActionType = "stabilize_region"
+	ActionDroughtRelief   ActionType = "drought_relief"
 
 	ActionPending  ActionState = "pending"
 	ActionApplied  ActionState = "applied"

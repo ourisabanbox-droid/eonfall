@@ -52,7 +52,7 @@ func (s *BasicPersistenceService) FlushIfNeeded(ctx context.Context, w *world.Wo
 			return err
 		}
 		for _, rs := range region.ResourceStocks {
-			if err := s.regionRepo.UpdateResourceStock(ctx, rs); err != nil {
+			if err := s.regionRepo.UpsertResourceStock(ctx, rs); err != nil {
 				return err
 			}
 		}
