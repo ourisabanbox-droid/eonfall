@@ -41,7 +41,7 @@ func main() {
 	researchRepo := worldrepo.NewResearchRepository(pool)
 	alertRepo := worldrepo.NewAlertRepository(pool)
 	catastropheRepo := worldrepo.NewCatastropheRepository(pool)
-
+	trajectoryRepo := worldrepo.NewCivilizationTrajectoryRepository(pool)
 	loader := worldloader.New(worldRepo, civRepo, regionRepo, researchRepo, catastropheRepo)
 
 	worldID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
@@ -53,7 +53,7 @@ func main() {
 	engine := worldengine.NewEngine(
 		w,
 		time.Duration(cfg.TickRateMs)*time.Millisecond,
-		worldengine.NewQueuedActionService(actionRepo, buildingRepo, researchRepo, alertRepo, regionRepo),
+		worldengine.NewQueuedActionService(actionRepo, buildingRepo, researchRepo, alertRepo, regionRepo, trajectoryRepo),
 		worldengine.NewBasicProductionService(),
 		worldengine.NewBasicConsumptionService(),
 		worldengine.NewBasicResearchService(researchRepo, alertRepo),
@@ -71,7 +71,7 @@ func main() {
 		}
 	}()
 
-	handler := httpapi.NewHandler(worldRepo, civRepo, regionRepo, actionRepo, researchRepo, alertRepo, catastropheRepo)
+	handler := httpapi.NewHandler(worldRepo, civRepo, regionRepo, actionRepo, researchRepo, alertRepo, catastropheRepo, trajectoryRepo)
 	router := httpapi.NewRouter(handler)
 
 	server := &http.Server{

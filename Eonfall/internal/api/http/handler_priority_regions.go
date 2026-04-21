@@ -47,51 +47,17 @@ func (h *Handler) GetPriorityRegions(w http.ResponseWriter, r *http.Request) {
 	for _, region := range regions {
 		score := region.RevoltRisk + region.DroughtRisk + maxIntHTTP(0, 100-region.Stability)
 
-		recommended := make([]AvailableActionResponse, 0, 2)
+		var recommended []AvailableActionResponse
+		var civilizationContext *CivilizationContextResponse
 		actionable := false
-		blockers := []string{}
+		var blockers []string
 
 		if region.OwnerCivilizationID == nil {
 			actionable = false
-			blockers = append(blockers, "region_unowned")
+			blockers = []string{"region_unowned"}
 		} else {
 			actionable = true
-
-			stabilizeReasons := []string{}
-			stabilizeRecommended := false
-
-			if region.RevoltRisk >= 60 {
-				stabilizeRecommended = true
-				stabilizeReasons = append(stabilizeReasons, "revolt_risk_high")
-			}
-			if region.Stability <= 30 {
-				stabilizeRecommended = true
-				stabilizeReasons = append(stabilizeReasons, "stability_low")
-			}
-
-			recommended = append(recommended, AvailableActionResponse{
-				ActionType:  "stabilize_region",
-				Label:       "Stabiliser la région",
-				Description: "Réduit le risque de révolte et améliore temporairement la stabilité.",
-				Recommended: stabilizeRecommended,
-				Reasons:     stabilizeReasons,
-			})
-
-			droughtReasons := []string{}
-			droughtRecommended := false
-
-			if region.DroughtRisk >= 60 {
-				droughtRecommended = true
-				droughtReasons = append(droughtReasons, "drought_risk_high")
-			}
-
-			recommended = append(recommended, AvailableActionResponse{
-				ActionType:  "drought_relief",
-				Label:       "Secours hydrique",
-				Description: "Réduit le risque de sécheresse et peut réinjecter du stock alimentaire.",
-				Recommended: droughtRecommended,
-				Reasons:     droughtReasons,
-			})
+			recommended, civilizationContext = h.buildRegionAvailableActions(r.Context(), worldID, region)
 		}
 
 		if recommendedOnly {
@@ -139,6 +105,7 @@ func (h *Handler) GetPriorityRegions(w http.ResponseWriter, r *http.Request) {
 			Actionable:           actionable,
 			ActionBlockers:       blockers,
 			TopRecommendedAction: topRecommendedAction,
+			CivilizationContext:  civilizationContext,
 		})
 	}
 

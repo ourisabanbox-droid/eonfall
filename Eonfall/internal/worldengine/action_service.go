@@ -15,6 +15,7 @@ const (
 	stabilizeRevoltRiskReduction       = 25
 	stabilizePressureReduction         = 15
 	stabilizeDurationTicks       int64 = 5
+	stabilizeCohesionCost        int64 = 50
 
 	droughtReliefRiskReduction       = 25
 	droughtReliefFoodGrant     int64 = 50
@@ -22,11 +23,12 @@ const (
 )
 
 type QueuedActionService struct {
-	actionRepo   *worldrepo.ActionRepository
-	buildingRepo *worldrepo.BuildingRepository
-	researchRepo *worldrepo.ResearchRepository
-	alertRepo    *worldrepo.AlertRepository
-	regionRepo   *worldrepo.RegionRepository
+	actionRepo     *worldrepo.ActionRepository
+	buildingRepo   *worldrepo.BuildingRepository
+	researchRepo   *worldrepo.ResearchRepository
+	alertRepo      *worldrepo.AlertRepository
+	regionRepo     *worldrepo.RegionRepository
+	trajectoryRepo *worldrepo.CivilizationTrajectoryRepository
 }
 
 func NewQueuedActionService(
@@ -35,13 +37,15 @@ func NewQueuedActionService(
 	researchRepo *worldrepo.ResearchRepository,
 	alertRepo *worldrepo.AlertRepository,
 	regionRepo *worldrepo.RegionRepository,
+	trajectoryRepo *worldrepo.CivilizationTrajectoryRepository,
 ) *QueuedActionService {
 	return &QueuedActionService{
-		actionRepo:   actionRepo,
-		buildingRepo: buildingRepo,
-		researchRepo: researchRepo,
-		alertRepo:    alertRepo,
-		regionRepo:   regionRepo,
+		actionRepo:     actionRepo,
+		buildingRepo:   buildingRepo,
+		researchRepo:   researchRepo,
+		alertRepo:      alertRepo,
+		regionRepo:     regionRepo,
+		trajectoryRepo: trajectoryRepo,
 	}
 }
 
@@ -165,6 +169,30 @@ func (s *QueuedActionService) applyBuild(ctx context.Context, w *world.World, ac
 	if err := s.alertRepo.Insert(ctx, alert); err != nil {
 		return fmt.Errorf("insert building alert: %w", err)
 	}
+
+	var resilienceDelta, expansionDelta, influenceDelta, scienceDelta int
+
+	switch rawBuildingType {
+	case "lab":
+		scienceDelta = 2
+	case "power_plant":
+		expansionDelta = 1
+		scienceDelta = 1
+	}
+
+	if resilienceDelta != 0 || expansionDelta != 0 || influenceDelta != 0 || scienceDelta != 0 {
+		if err := s.trajectoryRepo.IncrementScores(
+			ctx,
+			action.CivilizationID,
+			action.WorldID,
+			resilienceDelta,
+			expansionDelta,
+			influenceDelta,
+			scienceDelta,
+		); err != nil {
+			return fmt.Errorf("increment build trajectory: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -231,6 +259,17 @@ func (s *QueuedActionService) applyResearchStart(ctx context.Context, w *world.W
 	if err := s.researchRepo.Insert(ctx, rp); err != nil {
 		return fmt.Errorf("persist research: %w", err)
 	}
+	if err := s.trajectoryRepo.IncrementScores(
+		ctx,
+		action.CivilizationID,
+		action.WorldID,
+		0, // resilience
+		0, // expansion
+		0, // influence
+		2, // science
+	); err != nil {
+		return fmt.Errorf("increment research trajectory: %w", err)
+	}
 
 	return nil
 }
@@ -254,6 +293,16 @@ func (s *QueuedActionService) applyStabilizeRegion(ctx context.Context, w *world
 	if region.OwnerCivilizationID == nil || *region.OwnerCivilizationID != action.CivilizationID {
 		return fmt.Errorf("region is not owned by civilization")
 	}
+
+	cohesion := region.ResourceStocks[world.ResourceCohesion]
+	if cohesion == nil {
+		return fmt.Errorf("missing cohesion stock")
+	}
+	if cohesion.Stock < stabilizeCohesionCost {
+		return fmt.Errorf("insufficient cohesion")
+	}
+
+	cohesion.Stock -= stabilizeCohesionCost
 
 	region.Stability = clampInt(0, 100, region.Stability+stabilizeStabilityGain)
 	region.RevoltRisk = clampInt(0, 100, region.RevoltRisk-stabilizeRevoltRiskReduction)
@@ -283,7 +332,17 @@ func (s *QueuedActionService) applyStabilizeRegion(ctx context.Context, w *world
 	if err := s.alertRepo.Insert(ctx, alert); err != nil {
 		return fmt.Errorf("insert stabilize alert: %w", err)
 	}
-
+	if err := s.trajectoryRepo.IncrementScores(
+		ctx,
+		action.CivilizationID,
+		action.WorldID,
+		2, // resilience
+		0, // expansion
+		1, // influence
+		0, // science
+	); err != nil {
+		return fmt.Errorf("increment stabilize trajectory: %w", err)
+	}
 	return nil
 }
 
@@ -361,6 +420,16 @@ func (s *QueuedActionService) applyDroughtRelief(ctx context.Context, w *world.W
 	if err := s.alertRepo.Insert(ctx, alert); err != nil {
 		return fmt.Errorf("insert drought relief alert: %w", err)
 	}
-
+	if err := s.trajectoryRepo.IncrementScores(
+		ctx,
+		action.CivilizationID,
+		action.WorldID,
+		2, // resilience
+		0, // expansion
+		0, // influence
+		0, // science
+	); err != nil {
+		return fmt.Errorf("increment drought relief trajectory: %w", err)
+	}
 	return nil
 }

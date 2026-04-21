@@ -44,3 +44,9 @@ func toActionResponse(a *world.WorldAction) ActionResponse {
 		AppliedAt:       a.AppliedAt,
 	}
 }
+
+type CivilizationContextResponse struct {
+	DominantAxis  world.CivilizationAxis `json:"dominant_axis"`
+	SecondaryAxis world.CivilizationAxis `json:"secondary_axis"`
+	ProfileLabel  string                 `json:"profile_label"`
+}
