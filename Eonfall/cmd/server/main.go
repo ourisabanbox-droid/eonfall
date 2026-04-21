@@ -52,6 +52,7 @@ func main() {
 
 	engine := worldengine.NewEngine(
 		w,
+		worldRepo,
 		time.Duration(cfg.TickRateMs)*time.Millisecond,
 		worldengine.NewQueuedActionService(actionRepo, buildingRepo, researchRepo, alertRepo, regionRepo, trajectoryRepo),
 		worldengine.NewBasicProductionService(),

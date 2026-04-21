@@ -26,4 +26,6 @@ type World struct {
 	Regions       map[uuid.UUID]*Region
 	Events        map[uuid.UUID]*WorldEvent
 	Catastrophes  map[uuid.UUID]*Catastrophe
+
+	IsFrozen bool `json:"is_frozen"`
 }

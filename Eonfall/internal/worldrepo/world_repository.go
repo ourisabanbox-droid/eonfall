@@ -22,7 +22,7 @@ func NewWorldRepository(db *pgxpool.Pool) *WorldRepository {
 func (r *WorldRepository) GetByID(ctx context.Context, id uuid.UUID) (*world.World, error) {
 	const q = `
 SELECT id, name, season_number, state, phase, tick_rate_ms, current_tick,
-       config_version, seed_value, started_at, ends_at, created_at, updated_at
+       config_version, seed_value, started_at, ends_at, created_at, updated_at, is_frozen
 FROM worlds
 WHERE id = $1
 `
@@ -41,6 +41,7 @@ WHERE id = $1
 		&w.EndsAt,
 		&w.CreatedAt,
 		&w.UpdatedAt,
+		&w.IsFrozen,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("GetByID scan: %w", err)
@@ -76,4 +77,17 @@ func (r *WorldRepository) GetCurrentTick(ctx context.Context, worldID uuid.UUID)
 		return 0, fmt.Errorf("GetCurrentTick scan: %w", err)
 	}
 	return tick, nil
+}
+
+func (r *WorldRepository) SetFrozen(ctx context.Context, worldID uuid.UUID, isFrozen bool) error {
+	const q = `
+UPDATE worlds
+SET is_frozen = $1, updated_at = $3
+WHERE id = $2
+`
+	_, err := r.db.Exec(ctx, q, isFrozen, worldID, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("SetFrozen exec: %w", err)
+	}
+	return nil
 }

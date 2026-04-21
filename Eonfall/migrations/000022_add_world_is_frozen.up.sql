@@ -1,0 +1,2 @@
+ALTER TABLE worlds
+    ADD COLUMN is_frozen BOOLEAN NOT NULL DEFAULT false;

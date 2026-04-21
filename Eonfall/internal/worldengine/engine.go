@@ -2,14 +2,23 @@ package worldengine
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
+
+	"github.com/google/uuid"
 
 	"project-eonfall/internal/world"
 )
 
+type WorldMetadataReader interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*world.World, error)
+}
+
 type Engine struct {
 	world *world.World
+
+	worldRepo WorldMetadataReader
 
 	tickInterval time.Duration
 
@@ -26,6 +35,7 @@ type Engine struct {
 
 func NewEngine(
 	w *world.World,
+	worldRepo WorldMetadataReader,
 	tickInterval time.Duration,
 	actionService ActionService,
 	productionService ProductionService,
@@ -39,6 +49,7 @@ func NewEngine(
 ) *Engine {
 	return &Engine{
 		world:              w,
+		worldRepo:          worldRepo,
 		tickInterval:       tickInterval,
 		actionService:      actionService,
 		productionService:  productionService,
@@ -61,6 +72,17 @@ func (e *Engine) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			meta, err := e.worldRepo.GetByID(ctx, e.world.ID)
+			if err != nil {
+				return fmt.Errorf("engine load world metadata: %w", err)
+			}
+
+			e.world.IsFrozen = meta.IsFrozen
+
+			if e.world.IsFrozen {
+				continue
+			}
+
 			if err := e.Tick(ctx); err != nil {
 				return err
 			}
