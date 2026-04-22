@@ -75,9 +75,9 @@ func (h *Handler) GetCivilizationPriorityRegions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	acceptedStatus := make(map[string]string, len(acceptedMissions))
+	acceptedByKey := make(map[string]*world.CivilizationMission, len(acceptedMissions))
 	for _, mission := range acceptedMissions {
-		acceptedStatus[missionRecordStatusKey(mission.MissionType, mission.TargetRegionID)] = mission.Status
+		acceptedByKey[missionRecordStatusKey(mission.MissionType, mission.TargetRegionID)] = mission
 	}
 
 	var civilizationContext *CivilizationContextResponse
@@ -184,7 +184,7 @@ func (h *Handler) GetCivilizationPriorityRegions(w http.ResponseWriter, r *http.
 		summary.SuggestedObjective = buildSuggestedObjective(summary)
 		if len(out) > 0 {
 			summary.Mission = buildMissionFromRegion(out[0], "high")
-			applyAcceptedMissionStatus(summary.Mission, acceptedStatus)
+			applyAcceptedMissionState(summary.Mission, acceptedByKey)
 		}
 		secondary := make([]MissionResponse, 0, 3)
 
@@ -193,7 +193,8 @@ func (h *Handler) GetCivilizationPriorityRegions(w http.ResponseWriter, r *http.
 			if mission == nil {
 				continue
 			}
-			applyAcceptedMissionStatus(mission, acceptedStatus)
+
+			applyAcceptedMissionState(mission, acceptedByKey)
 			secondary = append(secondary, *mission)
 
 			if len(secondary) >= 3 {
@@ -369,12 +370,13 @@ func missionRecordStatusKey(missionType string, targetRegionID *uuid.UUID) strin
 	return missionType + "|" + targetRegionID.String()
 }
 
-func applyAcceptedMissionStatus(mission *MissionResponse, acceptedStatus map[string]string) {
+func applyAcceptedMissionState(mission *MissionResponse, acceptedByKey map[string]*world.CivilizationMission) {
 	if mission == nil {
 		return
 	}
 
-	if status, ok := acceptedStatus[missionStatusKey(mission.MissionType, mission.TargetRegionID)]; ok {
-		mission.Status = status
+	if accepted, ok := acceptedByKey[missionStatusKey(mission.MissionType, mission.TargetRegionID)]; ok {
+		mission.Status = accepted.Status
+		mission.AcceptedAt = accepted.AcceptedAt
 	}
 }

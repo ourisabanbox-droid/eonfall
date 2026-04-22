@@ -33,13 +33,15 @@ INSERT INTO civilization_missions (
     mission_type,
     target_region_id,
     status,
+    accepted_at,
     created_at,
     updated_at
 )
-VALUES ($1, $2, $3, $4, 'accepted', $5, $5)
+VALUES ($1, $2, $3, $4, 'accepted', $5, $5, $5)
 ON CONFLICT (world_id, civilization_id, mission_type, target_region_id)
 DO UPDATE SET
     status = 'accepted',
+    accepted_at = COALESCE(civilization_missions.accepted_at, EXCLUDED.accepted_at),
     updated_at = EXCLUDED.updated_at
 `
 	now := time.Now().UTC()
@@ -57,7 +59,7 @@ func (r *CivilizationMissionRepository) ListByCivilizationID(
 	civilizationID uuid.UUID,
 ) ([]*world.CivilizationMission, error) {
 	const q = `
-SELECT id, world_id, civilization_id, mission_type, target_region_id, status, created_at, updated_at
+SELECT id, world_id, civilization_id, mission_type, target_region_id, status, accepted_at, created_at, updated_at
 FROM civilization_missions
 WHERE world_id = $1 AND civilization_id = $2
 ORDER BY created_at DESC
@@ -79,6 +81,7 @@ ORDER BY created_at DESC
 			&m.MissionType,
 			&m.TargetRegionID,
 			&m.Status,
+			&m.AcceptedAt,
 			&m.CreatedAt,
 			&m.UpdatedAt,
 		); err != nil {

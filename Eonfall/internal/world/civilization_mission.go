@@ -15,4 +15,5 @@ type CivilizationMission struct {
 	Status         string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	AcceptedAt     *time.Time
 }

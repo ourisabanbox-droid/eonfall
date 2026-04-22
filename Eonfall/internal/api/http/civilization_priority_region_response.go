@@ -1,6 +1,9 @@
 package http
 
-import "project-eonfall/internal/world"
+import (
+	"project-eonfall/internal/world"
+	"time"
+)
 
 type CivilizationPriorityRegionResponse struct {
 	RegionID             string                    `json:"region_id"`
@@ -44,16 +47,17 @@ type SuggestedObjectiveResponse struct {
 }
 
 type MissionResponse struct {
-	MissionType         string   `json:"mission_type"`
-	MissionFamily       string   `json:"mission_family"`
-	Scope               string   `json:"scope"`
-	Status              string   `json:"status"`
-	TargetRegionID      string   `json:"target_region_id"`
-	Title               string   `json:"title"`
-	Description         string   `json:"description"`
-	Priority            string   `json:"priority"`
-	RiskLevel           string   `json:"risk_level"`
-	Reason              string   `json:"reason"`
-	RecommendedAction   string   `json:"recommended_action"`
-	SuggestedApproaches []string `json:"suggested_approaches,omitempty"`
+	MissionType         string     `json:"mission_type"`
+	MissionFamily       string     `json:"mission_family"`
+	Scope               string     `json:"scope"`
+	Status              string     `json:"status"`
+	AcceptedAt          *time.Time `json:"accepted_at,omitempty"`
+	TargetRegionID      string     `json:"target_region_id"`
+	Title               string     `json:"title"`
+	Description         string     `json:"description"`
+	Priority            string     `json:"priority"`
+	RiskLevel           string     `json:"risk_level"`
+	Reason              string     `json:"reason"`
+	RecommendedAction   string     `json:"recommended_action"`
+	SuggestedApproaches []string   `json:"suggested_approaches,omitempty"`
 }
