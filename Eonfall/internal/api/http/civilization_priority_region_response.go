@@ -33,6 +33,7 @@ type CivilizationPriorityRegionsSummary struct {
 	StrategicNote       string                      `json:"strategic_note"`
 	SuggestedObjective  *SuggestedObjectiveResponse `json:"suggested_objective,omitempty"`
 	Mission             *MissionResponse            `json:"mission,omitempty"`
+	SecondaryMissions   []MissionResponse           `json:"secondary_missions,omitempty"`
 }
 
 type SuggestedObjectiveResponse struct {
@@ -43,12 +44,16 @@ type SuggestedObjectiveResponse struct {
 }
 
 type MissionResponse struct {
-	MissionType       string `json:"mission_type"`
-	Status            string `json:"status"`
-	TargetRegionID    string `json:"target_region_id"`
-	Title             string `json:"title"`
-	Description       string `json:"description"`
-	Priority          string `json:"priority"`
-	Reason            string `json:"reason"`
-	RecommendedAction string `json:"recommended_action"`
+	MissionType         string   `json:"mission_type"`
+	MissionFamily       string   `json:"mission_family"`
+	Scope               string   `json:"scope"`
+	Status              string   `json:"status"`
+	TargetRegionID      string   `json:"target_region_id"`
+	Title               string   `json:"title"`
+	Description         string   `json:"description"`
+	Priority            string   `json:"priority"`
+	RiskLevel           string   `json:"risk_level"`
+	Reason              string   `json:"reason"`
+	RecommendedAction   string   `json:"recommended_action"`
+	SuggestedApproaches []string `json:"suggested_approaches,omitempty"`
 }

@@ -171,7 +171,27 @@ func (h *Handler) GetCivilizationPriorityRegions(w http.ResponseWriter, r *http.
 
 		summary.StrategicNote = buildCivilizationStrategicNote(summary)
 		summary.SuggestedObjective = buildSuggestedObjective(summary)
-		summary.Mission = buildMissionFromSummary(summary)
+		if len(out) > 0 {
+			summary.Mission = buildMissionFromRegion(out[0], "high")
+		}
+		secondary := make([]MissionResponse, 0, 3)
+
+		for i := 1; i < len(out); i++ {
+			mission := buildMissionFromRegion(out[i], "medium")
+			if mission == nil {
+				continue
+			}
+
+			secondary = append(secondary, *mission)
+
+			if len(secondary) >= 3 {
+				break
+			}
+		}
+
+		if len(secondary) > 0 {
+			summary.SecondaryMissions = secondary
+		}
 	}
 
 	writeJSON(w, http.StatusOK, CivilizationPriorityRegionsResponse{
@@ -263,34 +283,64 @@ func buildSuggestedObjective(summary *CivilizationPriorityRegionsSummary) *Sugge
 	}
 }
 
-func buildMissionFromSummary(summary *CivilizationPriorityRegionsSummary) *MissionResponse {
-	if summary == nil || summary.TopUrgentRegionID == nil || summary.TopUrgentAction == nil {
+func buildMissionFromRegion(region CivilizationPriorityRegionResponse, priority string) *MissionResponse {
+	if region.TopRecommendedAction == nil {
 		return nil
 	}
 
-	switch *summary.TopUrgentAction {
+	switch *region.TopRecommendedAction {
 	case "stabilize_region":
+		description := "Réduisez la pression de révolte dans une région critique de votre civilisation."
+		if priority == "high" {
+			description = "Réduisez la pression de révolte dans la région la plus urgente de votre civilisation."
+		}
+
 		return &MissionResponse{
 			MissionType:       "regional_stabilization",
+			MissionFamily:     "crisis",
+			Scope:             "region",
 			Status:            "available",
-			TargetRegionID:    *summary.TopUrgentRegionID,
+			TargetRegionID:    region.RegionID,
 			Title:             "Stabiliser la région prioritaire",
-			Description:       "Réduisez la pression de révolte dans la région la plus urgente de votre civilisation.",
-			Priority:          "high",
+			Description:       description,
+			Priority:          priority,
+			RiskLevel:         "high",
 			Reason:            "revolt_pressure_high",
 			RecommendedAction: "stabilize_region",
+			SuggestedApproaches: []string{
+				"governance",
+				"civil",
+				"military",
+			},
 		}
+
 	case "drought_relief":
+		description := "Réduisez la pression de sécheresse dans une région critique de votre civilisation."
+		riskLevel := "medium"
+		if priority == "high" {
+			description = "Réduisez la pression de sécheresse dans la région la plus urgente de votre civilisation."
+			riskLevel = "high"
+		}
+
 		return &MissionResponse{
 			MissionType:       "regional_drought_relief",
+			MissionFamily:     "crisis",
+			Scope:             "region",
 			Status:            "available",
-			TargetRegionID:    *summary.TopUrgentRegionID,
+			TargetRegionID:    region.RegionID,
 			Title:             "Déployer un secours hydrique prioritaire",
-			Description:       "Réduisez la pression de sécheresse dans la région la plus urgente de votre civilisation.",
-			Priority:          "high",
+			Description:       description,
+			Priority:          priority,
+			RiskLevel:         riskLevel,
 			Reason:            "drought_pressure_high",
 			RecommendedAction: "drought_relief",
+			SuggestedApproaches: []string{
+				"civil",
+				"logistics",
+				"science",
+			},
 		}
+
 	default:
 		return nil
 	}
