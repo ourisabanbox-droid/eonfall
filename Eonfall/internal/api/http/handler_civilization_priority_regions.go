@@ -69,6 +69,17 @@ func (h *Handler) GetCivilizationPriorityRegions(w http.ResponseWriter, r *http.
 		return
 	}
 
+	acceptedMissions, err := h.civilizationMissionRepo.ListByCivilizationID(r.Context(), worldID, civilizationID)
+	if err != nil {
+		http.Error(w, "failed to load civilization missions", http.StatusInternalServerError)
+		return
+	}
+
+	acceptedStatus := make(map[string]string, len(acceptedMissions))
+	for _, mission := range acceptedMissions {
+		acceptedStatus[missionRecordStatusKey(mission.MissionType, mission.TargetRegionID)] = mission.Status
+	}
+
 	var civilizationContext *CivilizationContextResponse
 
 	trajectory, err := h.trajectoryRepo.GetByCivilizationID(r.Context(), civilizationID)
@@ -173,6 +184,7 @@ func (h *Handler) GetCivilizationPriorityRegions(w http.ResponseWriter, r *http.
 		summary.SuggestedObjective = buildSuggestedObjective(summary)
 		if len(out) > 0 {
 			summary.Mission = buildMissionFromRegion(out[0], "high")
+			applyAcceptedMissionStatus(summary.Mission, acceptedStatus)
 		}
 		secondary := make([]MissionResponse, 0, 3)
 
@@ -181,7 +193,7 @@ func (h *Handler) GetCivilizationPriorityRegions(w http.ResponseWriter, r *http.
 			if mission == nil {
 				continue
 			}
-
+			applyAcceptedMissionStatus(mission, acceptedStatus)
 			secondary = append(secondary, *mission)
 
 			if len(secondary) >= 3 {
@@ -343,5 +355,26 @@ func buildMissionFromRegion(region CivilizationPriorityRegionResponse, priority 
 
 	default:
 		return nil
+	}
+}
+
+func missionStatusKey(missionType string, targetRegionID string) string {
+	return missionType + "|" + targetRegionID
+}
+
+func missionRecordStatusKey(missionType string, targetRegionID *uuid.UUID) string {
+	if targetRegionID == nil {
+		return missionType + "|"
+	}
+	return missionType + "|" + targetRegionID.String()
+}
+
+func applyAcceptedMissionStatus(mission *MissionResponse, acceptedStatus map[string]string) {
+	if mission == nil {
+		return
+	}
+
+	if status, ok := acceptedStatus[missionStatusKey(mission.MissionType, mission.TargetRegionID)]; ok {
+		mission.Status = status
 	}
 }

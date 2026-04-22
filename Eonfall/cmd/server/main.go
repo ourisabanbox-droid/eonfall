@@ -42,6 +42,7 @@ func main() {
 	alertRepo := worldrepo.NewAlertRepository(pool)
 	catastropheRepo := worldrepo.NewCatastropheRepository(pool)
 	trajectoryRepo := worldrepo.NewCivilizationTrajectoryRepository(pool)
+	civilizationMissionRepo := worldrepo.NewCivilizationMissionRepository(pool)
 	loader := worldloader.New(worldRepo, civRepo, regionRepo, researchRepo, catastropheRepo)
 
 	worldID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
@@ -72,7 +73,7 @@ func main() {
 		}
 	}()
 
-	handler := httpapi.NewHandler(worldRepo, civRepo, regionRepo, actionRepo, researchRepo, alertRepo, catastropheRepo, trajectoryRepo)
+	handler := httpapi.NewHandler(worldRepo, civRepo, regionRepo, actionRepo, researchRepo, alertRepo, catastropheRepo, trajectoryRepo, civilizationMissionRepo)
 	router := httpapi.NewRouter(handler)
 
 	server := &http.Server{

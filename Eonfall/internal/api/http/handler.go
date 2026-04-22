@@ -11,14 +11,15 @@ import (
 )
 
 type Handler struct {
-	worldRepo        *worldrepo.WorldRepository
-	civilizationRepo *worldrepo.CivilizationRepository
-	regionRepo       *worldrepo.RegionRepository
-	actionRepo       *worldrepo.ActionRepository
-	researchRepo     *worldrepo.ResearchRepository
-	alertRepo        *worldrepo.AlertRepository
-	catastropheRepo  *worldrepo.CatastropheRepository
-	trajectoryRepo   *worldrepo.CivilizationTrajectoryRepository
+	worldRepo               *worldrepo.WorldRepository
+	civilizationRepo        *worldrepo.CivilizationRepository
+	regionRepo              *worldrepo.RegionRepository
+	actionRepo              *worldrepo.ActionRepository
+	researchRepo            *worldrepo.ResearchRepository
+	alertRepo               *worldrepo.AlertRepository
+	catastropheRepo         *worldrepo.CatastropheRepository
+	trajectoryRepo          *worldrepo.CivilizationTrajectoryRepository
+	civilizationMissionRepo *worldrepo.CivilizationMissionRepository
 }
 
 func NewHandler(
@@ -30,16 +31,18 @@ func NewHandler(
 	alertRepo *worldrepo.AlertRepository,
 	catastropheRepo *worldrepo.CatastropheRepository,
 	trajectoryRepo *worldrepo.CivilizationTrajectoryRepository,
+	civilizationMissionRepo *worldrepo.CivilizationMissionRepository,
 ) *Handler {
 	return &Handler{
-		worldRepo:        worldRepo,
-		civilizationRepo: civilizationRepo,
-		regionRepo:       regionRepo,
-		actionRepo:       actionRepo,
-		researchRepo:     researchRepo,
-		alertRepo:        alertRepo,
-		catastropheRepo:  catastropheRepo,
-		trajectoryRepo:   trajectoryRepo,
+		worldRepo:               worldRepo,
+		civilizationRepo:        civilizationRepo,
+		regionRepo:              regionRepo,
+		actionRepo:              actionRepo,
+		researchRepo:            researchRepo,
+		alertRepo:               alertRepo,
+		catastropheRepo:         catastropheRepo,
+		trajectoryRepo:          trajectoryRepo,
+		civilizationMissionRepo: civilizationMissionRepo,
 	}
 }
 

@@ -28,6 +28,7 @@ func NewRouter(h *Handler) http.Handler {
 	r.Get("/worlds/{worldID}/civilizations/{civilizationID}/priority-regions", h.GetCivilizationPriorityRegions)
 	r.Post("/worlds/{worldID}/freeze", h.FreezeWorld)
 	r.Post("/worlds/{worldID}/unfreeze", h.UnfreezeWorld)
+	r.Post("/worlds/{worldID}/civilizations/{civilizationID}/missions/accept", h.AcceptCivilizationMission)
 
 	return r
 }
